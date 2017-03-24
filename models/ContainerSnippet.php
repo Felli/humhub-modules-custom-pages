@@ -67,6 +67,7 @@ class ContainerSnippet extends ContainerPage
         return [
             Container::TYPE_MARKDOWN,
             Container::TYPE_IFRAME,
+            Container::TYPE_PHP,
             Container::TYPE_TEMPLATE,
         ];
     }
