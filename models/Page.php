@@ -110,6 +110,7 @@ class Page extends ActiveRecord implements CustomContentContainer
             Container::TYPE_HTML,
             Container::TYPE_MARKDOWN,
             Container::TYPE_IFRAME,
+            Container:: TYPE_PHP,
             Container::TYPE_TEMPLATE,
         ];
     }
