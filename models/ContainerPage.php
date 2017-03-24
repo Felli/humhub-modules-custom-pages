@@ -3,10 +3,16 @@
 namespace humhub\modules\custom_pages\models;
 
 use Yii;
-
+use humhub\modules\content\components\ContentActiveRecord;
+use humhub\modules\search\interfaces\Searchable;
+use humhub\modules\custom_pages\components\Container;
+use humhub\modules\custom_pages\modules\template\models\Template;
+use humhub\modules\custom_pages\models\CustomContentContainer;
 /**
  * This is the model class for table "custom_pages_container_page".
  *
+ * A container page is a custom page cotnainer, which can be added to a spaces.
+ * 
  * The followings are the available columns in table 'custom_pages_container_page':
  * @property integer $id
  * @property integer $type
@@ -15,22 +21,35 @@ use Yii;
  * @property string $page_content
  * @property integer $in_new_window
  * @property integer $sort_order
+ * @property integer $admin_only
+ * @property string $cssClass
  */
-class ContainerPage extends \humhub\modules\content\components\ContentActiveRecord implements \humhub\modules\search\interfaces\Searchable
+class ContainerPage extends ContentActiveRecord implements Searchable, CustomContentContainer
 {
+    /**
+     * @inheritdoc
+     */
+    public $streamChannel = null;
 
+    /**
+     * @inheritdoc
+     */
     public $autoAddToWall = false;
-    public $url;
-
-    const TYPE_LINK = '1';
-    const TYPE_HTML = '2';
-    const TYPE_IFRAME = '3';
-    const TYPE_MARKDOWN = '4';
 
     /**
      * @inheritdoc
      */
     public $wallEntryClass = 'humhub\modules\custom_pages\widgets\WallEntry';
+
+    /**
+     * @inheritdoc
+     */
+    public function behaviors()
+    {
+        return [
+            ['class' => \humhub\modules\custom_pages\components\Container::className()],
+        ];
+    }
 
     /**
      * @return string the associated database table name
@@ -40,15 +59,16 @@ class ContainerPage extends \humhub\modules\content\components\ContentActiveReco
         return 'custom_pages_container_page';
     }
 
+    /**
+     * @inheritdoc
+     * @return string
+     */
     public function rules()
     {
-        return array(
-            [['type', 'title'], 'required'],
-            [['type', 'sort_order', 'in_new_window'], 'integer'],
-            [['title'], 'string', 'max' => 255],
-            [['icon'], 'string', 'max' => 100],
-            [['page_content', 'url'], 'safe'],
-        );
+        $rules = $this->defaultRules();
+        $rules[] = ['in_new_window', 'integer'];
+        $rules[] = [['page_content'], 'safe'];
+        return $rules;
     }
 
     /**
@@ -56,44 +76,11 @@ class ContainerPage extends \humhub\modules\content\components\ContentActiveReco
      */
     public function attributeLabels()
     {
-        return array(
-            'id' => 'ID',
-            'type' => 'Type',
-            'title' => 'Title',
-            'icon' => 'Icon',
-            'page_content' => 'Content',
-            'url' => 'URL',
-            'sort_order' => 'Sort Order',
-            'admin_only' => 'Only visible for admins',
-            'in_new_window' => 'Open in new window',
-            'navigation_class' => 'Navigation',
-        );
-    }
-
-    public function beforeSave($insert)
-    {
-        if ($this->type == self::TYPE_IFRAME || $this->type == self::TYPE_LINK) {
-            $this->page_content = $this->url;
-        }
-        return parent::beforeSave($insert);
-    }
-
-    public function afterFind()
-    {
-        if ($this->type == self::TYPE_IFRAME || $this->type == self::TYPE_LINK) {
-            $this->url = $this->page_content;
-        }
-
-        return parent::afterFind();
-    }
-
-    public static function getPageTypes()
-    {
-        return array(
-            self::TYPE_MARKDOWN => Yii::t('CustomPagesModule.base', 'MarkDown'),
-            self::TYPE_LINK => Yii::t('CustomPagesModule.base', 'Link'),
-            self::TYPE_IFRAME => Yii::t('CustomPagesModule.base', 'IFrame'),
-        );
+        $result = $this->defaultAttributeLabels();
+        $result['in_new_window'] = Yii::t('CustomPagesModule.models_ContainerPage', 'Open in new window');
+        $result['page_content'] = Yii::t('CustomPagesModule.models_ContainerPage', 'Content');
+        $result['admin_only'] = Yii::t('CustomPagesModule.models_ContainerPage', 'Only visible for space admins');
+        return $result;
     }
 
     /**
@@ -124,11 +111,48 @@ class ContainerPage extends \humhub\modules\content\components\ContentActiveReco
     }
 
     /**
-     * @inheritdoc
+     * Returns the view url of this page.
      */
     public function getUrl()
     {
         return $this->content->container->createUrl('/custom_pages/container/view', ['id' => $this->id]);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getContentTypes()
+    {
+        return [
+            Container::TYPE_MARKDOWN,
+            Container::TYPE_LINK,
+            Container::TYPE_IFRAME,
+            Container::TYPE_TEMPLATE,
+        ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getLabel()
+    {
+        return Yii::t('CustomPagesModule.models_ContainerPage', 'page');
+    }
+    
+    /**
+     * @inheritdoc
+     */
+    public function getPageContent()
+    {
+        return $this->page_content;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getAllowedTemplateSelection()
+    {
+        return Template::getSelection(['type' => Template::TYPE_LAYOUT, 'allow_for_spaces' => 1]);
     }
 
 }
